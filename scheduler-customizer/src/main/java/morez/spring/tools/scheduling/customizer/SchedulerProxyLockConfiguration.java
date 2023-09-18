@@ -12,8 +12,6 @@ import org.springframework.lang.NonNull;
 @Configuration
 @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
 class SchedulerProxyLockConfiguration {
-    private final Logger logger = LoggerFactory.getLogger(getClass());
-
     @Bean
     @Conditional(OnSchedulerCustomizerEnabledCondition.class)
     @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
@@ -34,16 +32,16 @@ class SchedulerProxyLockConfiguration {
             var beanFactory = context.getBeanFactory();
             if (beanFactory == null)
                 return false;
+
+            var applicationBeanName = beanFactory.getBeanNamesForAnnotation(SpringBootApplication.class)[0];
             boolean isMarkedAsEnabled = beanFactory
-                    .getBeansWithAnnotation(SpringBootApplication.class)
-                    .values()
-                    .stream()
-                    .anyMatch((c) -> checkEnableAnnotationIsMarked(c.getClass()));
+                    .findAnnotationOnBean(applicationBeanName, EnableSchedulerCustomizer.class) != null;
             if (!isMarkedAsEnabled) {
                 logger.info("SpringBootApplication class does not marked SchedulerCustomizer as enabled. " +
                         "To enable SchedulerCustomizer add @EnableSchedulerCustomizer to SpringBootApplication class");
                 return false;
             }
+
             var customizerBeans=beanFactory.getBeansOfType(SchedulerCustomizerInterface.class);
             if (customizerBeans.isEmpty()) {
                 logger.info("SchedulerCustomizer bean is not declared. " +
@@ -56,15 +54,6 @@ class SchedulerProxyLockConfiguration {
                 return false;
             }
             return true;
-        }
-
-        private boolean checkEnableAnnotationIsMarked(Class<?> c) {
-            while (c != Object.class) {
-                if (c.isAnnotationPresent(EnableSchedulerCustomizer.class))
-                    return true;
-                c = c.getSuperclass();
-            }
-            return false;
         }
     }
 }
